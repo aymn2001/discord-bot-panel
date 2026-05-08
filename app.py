@@ -8,7 +8,7 @@ from flask import Flask, request, jsonify, session, render_template
 # ============================================================
 #  الإعدادات - غيّرها
 # ============================================================
-TOKEN = "TOKEN_HERE"  # توكن البوت
+TOKEN = os.environ.get("TOKEN", "") # توكن البوت
 ADMIN_USERS = {
     "admin": "Aymn2629",  # اسم المستخدم: كلمة السر
 }
