@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>لوحة التحكم</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Tajawal', sans-serif;
+    background: #0d0d0d;
+    min-height: 100vh;
+    padding: 24px;
+    background-image: radial-gradient(ellipse at 20% 50%, #1a0533 0%, transparent 60%),
+                      radial-gradient(ellipse at 80% 20%, #001a33 0%, transparent 60%);
+  }
+  .container { max-width: 700px; margin: 0 auto; }
+  .header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 24px;
+  }
+  .title { font-size: 24px; font-weight: 900; color: #fff; }
+  .btn-logout {
+    padding: 8px 16px; background: transparent; border: 1px solid #333;
+    border-radius: 8px; color: #666; font-family: 'Tajawal', sans-serif;
+    font-size: 14px; cursor: pointer; transition: all 0.2s;
+  }
+  .btn-logout:hover { border-color: #555; color: #aaa; }
+
+  .card {
+    background: #141414; border: 1px solid #2a2a2a;
+    border-radius: 16px; padding: 24px; margin-bottom: 20px;
+  }
+  .card-title { font-size: 16px; font-weight: 700; color: #aaa; margin-bottom: 16px; }
+
+  /* Status */
+  .status-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; background: #555; transition: all 0.4s; }
+  .dot.on { background: #57F287; box-shadow: 0 0 10px #57F287; animation: pulse 1.5s infinite; }
+  .dot.off { background: #ed4245; }
+  @keyframes pulse { 0%,100% { box-shadow: 0 0 6px #57F287; } 50% { box-shadow: 0 0 16px #57F287; } }
+  .status-text { font-size: 16px; font-weight: 700; color: #fff; }
+
+  .btn-group { display: flex; gap: 10px; }
+  .btn {
+    flex: 1; padding: 12px; border: none; border-radius: 8px;
+    font-size: 15px; font-family: 'Tajawal', sans-serif; font-weight: 700;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .btn-start { background: #57F287; color: #000; }
+  .btn-start:hover { background: #3fdb6e; }
+  .btn-stop { background: #ed4245; color: #fff; }
+  .btn-stop:hover { background: #c53235; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .msg { font-size: 13px; color: #aaa; min-height: 20px; margin-top: 10px; }
+  .msg.ok { color: #57F287; }
+  .msg.err { color: #ed4245; }
+
+  /* Roles */
+  .add-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+  .add-row input {
+    flex: 1; min-width: 140px; background: #1e1e1e; border: 1px solid #333;
+    border-radius: 8px; padding: 10px 14px; color: #fff;
+    font-family: 'Tajawal', sans-serif; font-size: 14px; text-align: right;
+  }
+  .add-row input:focus { outline: none; border-color: #5865F2; }
+  .add-row input[type=number] { max-width: 90px; }
+  .btn-add {
+    padding: 10px 18px; background: #5865F2; color: #fff; border: none;
+    border-radius: 8px; font-family: 'Tajawal', sans-serif; font-size: 14px;
+    font-weight: 700; cursor: pointer; transition: background 0.2s; white-space: nowrap;
+  }
+  .btn-add:hover { background: #4752C4; }
+
+  .roles-list { display: flex; flex-direction: column; gap: 10px; }
+  .role-item {
+    background: #1e1e1e; border: 1px solid #2a2a2a; border-radius: 10px;
+    padding: 14px 16px; display: flex; align-items: center; justify-content: space-between;
+  }
+  .role-info { display: flex; flex-direction: column; gap: 4px; }
+  .role-giver { font-size: 14px; font-weight: 700; color: #fff; }
+  .role-arrow { font-size: 12px; color: #666; }
+  .role-target { font-size: 13px; color: #5865F2; font-weight: 700; }
+  .role-limit { font-size: 12px; color: #555; }
+  .btn-delete {
+    padding: 6px 12px; background: transparent; border: 1px solid #ed4245;
+    border-radius: 6px; color: #ed4245; font-family: 'Tajawal', sans-serif;
+    font-size: 13px; cursor: pointer; transition: all 0.2s;
+  }
+  .btn-delete:hover { background: #ed4245; color: #fff; }
+  .empty { color: #555; font-size: 14px; text-align: center; padding: 20px; }
+
+  .hint { font-size: 12px; color: #555; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="title">⚙️ لوحة التحكم</div>
+    <button class="btn-logout" onclick="logout()">خروج</button>
+  </div>
+
+  <!-- Bot Control -->
+  <div class="card">
+    <div class="card-title">حالة البوت</div>
+    <div class="status-row">
+      <div class="dot" id="dot"></div>
+      <div class="status-text" id="statusText">جاري التحقق...</div>
+    </div>
+    <div class="btn-group">
+      <button class="btn btn-start" id="btnStart" onclick="startBot()" disabled>▶ تشغيل</button>
+      <button class="btn btn-stop" id="btnStop" onclick="stopBot()" disabled>⏹ إيقاف</button>
+    </div>
+    <div class="msg" id="botMsg"></div>
+  </div>
+
+  <!-- Role Management -->
+  <div class="card">
+    <div class="card-title">إدارة الرتب</div>
+    <div class="hint">أضف: رتبة تملك صلاحية الإعطاء ← الرتبة اللي تعطيها ← الحد</div>
+    <div class="add-row">
+      <input type="text" id="giverRole" placeholder="رتبة المعطي (مثال: مشرف)">
+      <input type="text" id="targetRole" placeholder="الرتبة المُعطاة (مثال: عضو)">
+      <input type="number" id="limitNum" placeholder="الحد" value="30" min="1">
+      <button class="btn-add" onclick="addRole()">+ إضافة</button>
+    </div>
+    <div class="msg" id="roleMsg"></div>
+    <div class="roles-list" id="rolesList">
+      <div class="empty">لا توجد رتب مضافة</div>
+    </div>
+  </div>
+</div>
+
+<script>
+async function checkStatus() {
+  const res = await fetch('/status');
+  const data = await res.json();
+  const running = data.running;
+  document.getElementById('dot').className = 'dot ' + (running ? 'on' : 'off');
+  document.getElementById('statusText').textContent = running ? 'البوت شغال ✅' : 'البوت موقوف 🔴';
+  document.getElementById('btnStart').disabled = running;
+  document.getElementById('btnStop').disabled = !running;
+}
+
+function showMsg(id, text, type) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.className = 'msg ' + type;
+  setTimeout(() => { el.textContent = ''; el.className = 'msg'; }, 3000);
+}
+
+async function startBot() {
+  const res = await fetch('/start', { method: 'POST' });
+  const data = await res.json();
+  showMsg('botMsg', data.message, data.success ? 'ok' : 'err');
+  if (data.success) setTimeout(checkStatus, 1500);
+}
+
+async function stopBot() {
+  const res = await fetch('/stop', { method: 'POST' });
+  const data = await res.json();
+  showMsg('botMsg', data.message, data.success ? 'ok' : 'err');
+  setTimeout(checkStatus, 1000);
+}
+
+async function loadRoles() {
+  const res = await fetch('/roles');
+  const roles = await res.json();
+  const list = document.getElementById('rolesList');
+  if (!roles.length) {
+    list.innerHTML = '<div class="empty">لا توجد رتب مضافة</div>';
+    return;
+  }
+  list.innerHTML = roles.map(r => `
+    <div class="role-item">
+      <div class="role-info">
+        <div class="role-giver">👑 ${r.giver_role}</div>
+        <div class="role-arrow">تقدر تعطي ↓</div>
+        <div class="role-target">🎖️ ${r.target_role}</div>
+        <div class="role-limit">الحد: ${r.limit} إعطاء</div>
+      </div>
+      <button class="btn-delete" onclick="deleteRole('${r.giver_role}')">حذف</button>
+    </div>
+  `).join('');
+}
+
+async function addRole() {
+  const giver = document.getElementById('giverRole').value.trim();
+  const target = document.getElementById('targetRole').value.trim();
+  const limit = parseInt(document.getElementById('limitNum').value) || 30;
+  if (!giver || !target) { showMsg('roleMsg', 'أدخل اسم الرتبتين', 'err'); return; }
+  const res = await fetch('/roles', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ giver_role: giver, target_role: target, limit })
+  });
+  const data = await res.json();
+  if (data.success) {
+    document.getElementById('giverRole').value = '';
+    document.getElementById('targetRole').value = '';
+    document.getElementById('limitNum').value = '30';
+    showMsg('roleMsg', 'تمت الإضافة ✅', 'ok');
+    loadRoles();
+  } else {
+    showMsg('roleMsg', data.message, 'err');
+  }
+}
+
+async function deleteRole(giver) {
+  const res = await fetch('/roles/' + encodeURIComponent(giver), { method: 'DELETE' });
+  const data = await res.json();
+  if (data.success) loadRoles();
+}
+
+async function logout() {
+  await fetch('/logout', { method: 'POST' });
+  window.location.reload();
+}
+
+checkStatus();
+loadRoles();
+setInterval(checkStatus, 5000);
+</script>
+</body>
+</html>
