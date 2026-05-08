@@ -3,32 +3,20 @@ from discord.ext import commands
 import json
 import os
 import threading
+import asyncio
 from flask import Flask, request, jsonify, session, render_template
 
 # ============================================================
-#  الإعدادات - غيّرها
-# ============================================================
-TOKEN = os.environ.get("TOKEN", "") # توكن البوت
-ADMIN_USERS = {
-    "admin": "Aymn2629",  # اسم المستخدم: كلمة السر
-}
+TOKEN = os.environ.get("TOKEN", "")
+ADMIN_USERS = {"admin": "password123"}
 CONFIG_FILE = "roles_config.json"
 # ============================================================
 
-# Flask App
 app = Flask(__name__)
-app.secret_key = "super_secret_key_change_this"
-
-# Bot
-intents = discord.Intents.default()
-intents.members = True
-intents.message_content = True
-bot = commands.Bot(command_prefix="!", intents=intents)
-bot_thread = None
-bot_running = False
+app.secret_key = "change_this_secret"
 
 # ============================================================
-# Config Management
+# Config
 # ============================================================
 def load_config():
     if os.path.exists(CONFIG_FILE):
@@ -43,8 +31,16 @@ def save_config(config):
 # ============================================================
 # Discord Bot
 # ============================================================
+intents = discord.Intents.default()
+intents.members = True
+intents.message_content = True
+bot = commands.Bot(command_prefix="!", intents=intents)
+bot_ready = False
+
 @bot.event
 async def on_ready():
+    global bot_ready
+    bot_ready = True
     print(f"✅ البوت شغال: {bot.user}")
 
 @bot.command(name="giverole")
@@ -55,7 +51,6 @@ async def give_role(ctx, member: discord.Member = None):
 
     config = load_config()
     author_role_names = [r.name for r in ctx.author.roles]
-
     matched = None
     for role_map in config["roles"]:
         if role_map["giver_role"] in author_role_names:
@@ -66,19 +61,16 @@ async def give_role(ctx, member: discord.Member = None):
         await ctx.send("❌ ما عندك صلاحية إعطاء رتب.")
         return
 
-    # Check limit
     giver_id = str(ctx.author.id)
     stats = config.get("stats", {})
     role_key = matched["giver_role"]
-    role_stats = stats.get(role_key, {})
-    count = role_stats.get(giver_id, 0)
+    count = stats.get(role_key, {}).get(giver_id, 0)
     limit = matched.get("limit", 30)
 
     if count >= limit:
         await ctx.send(f"❌ وصلت للحد الأقصى ({limit} إعطاء).")
         return
 
-    # Find target role
     target_role = discord.utils.get(ctx.guild.roles, name=matched["target_role"])
     if not target_role:
         await ctx.send(f"❌ الرتبة '{matched['target_role']}' ما موجودة في السيرفر.")
@@ -90,27 +82,24 @@ async def give_role(ctx, member: discord.Member = None):
 
     await member.add_roles(target_role)
 
-    # Update stats
     if role_key not in stats:
         stats[role_key] = {}
     stats[role_key][giver_id] = count + 1
     config["stats"] = stats
     save_config(config)
 
-    remaining = limit - (count + 1)
     await ctx.send(
         f"✅ تم إعطاء {member.mention} رتبة **{matched['target_role']}**!\n"
-        f"📊 متبقي لك: {remaining}/{limit}"
+        f"📊 متبقي لك: {limit - count - 1}/{limit}"
     )
 
 def run_bot():
-    import asyncio
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     loop.run_until_complete(bot.start(TOKEN))
 
 # ============================================================
-# Flask Routes
+# Flask
 # ============================================================
 def login_required(f):
     from functools import wraps
@@ -144,42 +133,12 @@ def logout():
 @app.route("/status")
 @login_required
 def status():
-    global bot_running
-    return jsonify({"running": bot_running and bot_thread and bot_thread.is_alive()})
-
-@app.route("/start", methods=["POST"])
-@login_required
-def start():
-    global bot_thread, bot_running
-    if bot_thread and bot_thread.is_alive():
-        return jsonify({"success": False, "message": "البوت شغال أصلاً"})
-    try:
-        bot_running = True
-        bot_thread = threading.Thread(target=run_bot, daemon=True)
-        bot_thread.start()
-        return jsonify({"success": True, "message": "تم تشغيل البوت ✅"})
-    except Exception as e:
-        bot_running = False
-        return jsonify({"success": False, "message": str(e)})
-
-@app.route("/stop", methods=["POST"])
-@login_required
-def stop():
-    global bot_running
-    import asyncio
-    try:
-        bot_running = False
-        future = asyncio.run_coroutine_threadsafe(bot.close(), bot.loop)
-        future.result(timeout=5)
-        return jsonify({"success": True, "message": "تم إيقاف البوت 🛑"})
-    except Exception as e:
-        return jsonify({"success": False, "message": "تم الإيقاف"})
+    return jsonify({"running": bot_ready})
 
 @app.route("/roles", methods=["GET"])
 @login_required
 def get_roles():
-    config = load_config()
-    return jsonify(config.get("roles", []))
+    return jsonify(load_config().get("roles", []))
 
 @app.route("/roles", methods=["POST"])
 @login_required
@@ -191,7 +150,6 @@ def add_role():
     if not giver or not target:
         return jsonify({"success": False, "message": "أدخل اسم الرتبتين"})
     config = load_config()
-    # Check duplicate
     for r in config["roles"]:
         if r["giver_role"] == giver:
             return jsonify({"success": False, "message": f"الرتبة '{giver}' موجودة أصلاً"})
@@ -207,6 +165,13 @@ def delete_role(giver_role):
     save_config(config)
     return jsonify({"success": True})
 
+# ============================================================
+# Start
+# ============================================================
 if __name__ == "__main__":
+    # شغّل البوت في thread منفصل
+    bot_thread = threading.Thread(target=run_bot, daemon=True)
+    bot_thread.start()
+
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
