@@ -8,9 +8,9 @@ from flask import Flask, request, jsonify, session, render_template
 # ============================================================
 #  الإعدادات - غيّرها
 # ============================================================
-TOKEN = "TOKEN_HERE"  # توكن البوت
+TOKEN = "MTUwMjEyNDc5NzI0MzY4NjkzMw.GE4sxo.6ZgrR8y5M35Cp_zp3lu58OBghZu2t0M7KxP6-Q"  # توكن البوت
 ADMIN_USERS = {
-    "admin": "password123",  # اسم المستخدم: كلمة السر
+    "admin": "Aymn2629",  # اسم المستخدم: كلمة السر
 }
 CONFIG_FILE = "roles_config.json"
 # ============================================================
